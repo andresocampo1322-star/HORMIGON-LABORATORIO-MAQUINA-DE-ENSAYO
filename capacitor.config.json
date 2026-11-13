@@ -1,0 +1,7 @@
+{
+  "appId": "com.hormigonlab.simulador",
+  "appName": "Hormigon Lab",
+  "webDir": "dist",
+  "server": { "androidScheme": "https" },
+  "android": { "backgroundColor": "#0b1220" }
+}

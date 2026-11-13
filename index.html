@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="theme-color" content="#09111d"/>
+  <meta name="description" content="Laboratorio virtual de concreto, con simulación 3D de máquinas y memorias matemáticas."/>
+  <title>Hormigón Lab | Simulador de ensayos</title>
+  <link rel="stylesheet" href="/src/style.css"/>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="logo"><span class="mark">H<span class="mark-dot">•</span>L</span></div>
+      <div class="brand"><strong>HORMIGÓN <span>LAB</span></strong><small>Laboratorio virtual de materiales · v0.1</small></div>
+      <span class="top-badge">SIMULADOR ACADÉMICO</span>
+    </header>
+    <nav class="tabs" aria-label="Secciones del laboratorio">
+      <button data-tab="lab" class="active">▣ Laboratorio</button>
+      <button data-tab="results">≋ Resultados</button>
+      <button data-tab="history">▤ Historial</button>
+      <button data-tab="norms">⌁ Normas</button>
+    </nav>
+    <main id="tab-lab" class="main-grid tab-pane">
+      <aside class="config-area">
+        <div class="eyebrow"><span class="pulse-dot"></span> PROYECTO DE ENSAYO <span class="tiny-tag">01 / 04</span></div>
+        <h1>Configura tu <em>ensayo.</em></h1>
+        <p class="subtext">Selecciona la probeta, define su mezcla y ajusta la máquina. Los resultados se calculan con tus datos.</p>
+        <div class="test-choices" id="test-choices">
+          <button class="test-choice active" data-test="cylinder"><span class="test-symbol">◯</span><b>Cilindro</b><small>Compresión</small></button>
+          <button class="test-choice" data-test="beam"><span class="test-symbol">▬</span><b>Viga simple</b><small>Flexión</small></button>
+          <button class="test-choice" data-test="reinforced"><span class="test-symbol">▥</span><b>Viga armada</b><small>Acero + concreto</small></button>
+        </div>
+        <div class="preset-row"><label for="preset-select">CONFIGURACIÓN RÁPIDA</label><div class="preset-controls"><select id="preset-select"><option value="lab">Vigueta 1:2:3 (masas) · lote pequeño</option><option value="normal">Concreto convencional · lote 1 m³</option><option value="high">Mezcla rica en cemento · demostración</option><option value="reinforced">Vigueta 6 barras con estribos</option><option value="nostirrups">Vigueta 6 barras sin estribos</option></select><button class="outline btn-small" id="apply-preset">Aplicar</button></div><small>Ejemplos académicos de entrada, no dosificaciones normativas certificadas.</small></div>
+        <div class="accordion">
+          <details open><summary><span>01</span> Geometría y propiedades <i>⌄</i></summary><div class="field-grid" id="geometry-fields"></div></details>
+          <details><summary><span>02</span> Dosificación y materiales <i>⌄</i></summary><div class="field-grid" id="mix-fields"></div></details>
+          <details id="steel-details" hidden><summary><span>03</span> Armadura de acero <i>⌄</i></summary><div class="field-grid" id="steel-fields"></div></details>
+          <details><summary><span>04</span> Máquina y registro <i>⌄</i></summary><div class="field-grid" id="machine-fields"></div></details>
+        </div>
+        <div class="actionbar">
+          <button class="primary" id="run-btn"><span>▶</span> Iniciar simulación</button>
+          <button class="outline icon-btn" id="reset-btn" aria-label="Reiniciar">↻</button>
+        </div>
+        <div class="tiny-note"><strong>Importante:</strong> los cálculos de carga estimada son didácticos. Solo una lectura real de la máquina representa un resultado experimental.</div>
+      </aside>
+      <section class="view-area">
+        <div class="viewer-card">
+          <div class="viewer-header"><div><span class="eyebrow">MÁQUINA UNIVERSAL / MODELO 3D</span><h2 id="viewer-title">Compresión uniaxial de cilindro</h2></div>
+          <button id="camera-btn" class="outline btn-small">⟲ Vista 3D</button></div>
+          <div class="canvas-frame">
+            <canvas id="machine-canvas" aria-label="Modelo tridimensional de máquina de ensayo universal rotatable"></canvas>
+            <div class="scene-label scene-left"><span class="label-index">01</span><span id="standard-label">ASTM C39 / C39M</span></div>
+            <div class="scene-label scene-right"><span class="scene-led"></span><span id="machine-status">LISTA</span></div>
+            <div class="gauge">
+              <span>CARGA APLICADA</span><strong><span id="gauge-value">0.00</span> <small>kN</small></strong>
+              <div class="gauge-bar"><div id="gauge-fill"></div></div>
+              <small id="gauge-caption">0% de la carga modelada</small>
+            </div>
+            <div class="canvas-hint">⤢ Arrastra para girar · Pellizca para ampliar</div>
+          </div>
+          <div class="status-row"><div><span class="status-key">ENSAYO</span><strong id="mode-status">Compresión axial</strong></div><div><span class="status-key">RITMO DE CARGA</span><strong id="rate-status">0,25 MPa/s</strong></div><div><span class="status-key">SIMULACIÓN</span><strong id="progress-status">0 %</strong></div></div>
+        </div>
+        <div class="insights">
+          <div class="insight"><span>CARGA MÁXIMA <i>MODELADA</i></span><strong id="peak-display">—</strong><small>kN</small></div>
+          <div class="insight"><span>RESISTENCIA ESTIMADA</span><strong id="strength-display">—</strong><small>MPa</small></div>
+          <div class="insight"><span>MÓDULO E ESTIMADO</span><strong id="elastic-display">—</strong><small>GPa</small></div>
+        </div>
+        <section class="mini-chart-card"><div class="section-heading"><div><small>RESPUESTA MODELADA</small><h3>Fuerza aplicada vs. progresión</h3></div><span class="tiny-tag">ILUSTRATIVO</span></div><svg id="mini-chart" viewBox="0 0 700 145" role="img" aria-label="Gráfica ilustrativa de carga" preserveAspectRatio="none"></svg><div class="chart-axis"><span>Inicio</span><span>Incremento de carga →</span><span>Falla</span></div></section>
+      </section>
+    </main>
+    <section class="tab-pane page-section" id="tab-results" hidden>
+      <div class="page-head"><span class="eyebrow">MEMORIA DE CÁLCULO</span><h1>Resultados <em>paso a paso.</em></h1><p>Separación entre fórmulas de cálculo, resultados introducidos por el usuario y predicciones educativas.</p></div>
+      <div id="result-alerts"></div>
+      <div id="result-metrics" class="metric-grid"></div>
+      <div class="section-heading"><div><small>PROCEDIMIENTO MATEMÁTICO</small><h3>Desarrollo completo</h3></div><span class="export-buttons"><button class="outline btn-small" id="export-report">↓ HTML</button><button class="primary btn-small" id="export-pdf">↓ PDF</button></span></div>
+      <div id="steps" class="step-list"></div>
+    </section>
+    <section class="tab-pane page-section" id="tab-history" hidden>
+      <div class="page-head"><span class="eyebrow">DATOS LOCALES / CALIBRACIÓN</span><h1>Historial de <em>ensayos.</em></h1><p>Guarda lecturas reales para compararlas con el modelo. Solo los resultados de cilindros a 28 días se usan al calibrar.</p></div>
+      <div class="history-top"><div class="insight"><span>ENSAYOS REALES GUARDADOS</span><strong id="history-count">0</strong><small>registros</small></div><div class="insight"><span>MODELO LOCAL</span><strong id="calibration-status">Sin calibrar</strong><small id="calibration-details">Mínimo tres cilindros a 28 días</small></div></div>
+      <div class="history-actions"><input id="record-label" placeholder="Etiqueta del ensayo (ej. Cilindro 01)" aria-label="Etiqueta de registro"/><button id="save-real" class="primary">＋ Guardar lectura real</button><button id="export-json" class="outline">↓ Exportar JSON</button><label class="outline import-btn">↑ Importar JSON<input type="file" id="import-json" accept="application/json" hidden/></label></div>
+      <div id="history-list" class="history-list"></div>
+      <p class="tiny-note">Los registros permanecen en el dispositivo. Los ejemplos de pantalla son modelos académicos; aquí no se añaden ensayos ficticios a la calibración.</p>
+    </section>
+    <section class="tab-pane page-section" id="tab-norms" hidden>
+      <div class="page-head"><span class="eyebrow">BIBLIOTECA TÉCNICA</span><h1>Fundamentos y <em>normativa.</em></h1><p>Normas de referencia para identificar la configuración del ensayo y los cálculos aplicables. Consultar los documentos completos antes de ejecutar pruebas reales.</p></div>
+      <div class="norm-grid" id="norms-list"></div>
+      <div class="explain-card"><h3>Qué puede y qué no puede simular la aplicación</h3><p><b>Calcula:</b> fórmulas de resistencia y carga, balance de humedad, rendimiento aproximado de la mezcla, refuerzo longitudinal, aporte nominal de estribos y módulo elástico estimado.</p><p><b>No determina por sí sola:</b> resistencia garantizada a partir de una receta, segregación real, anclaje, adherencia, deformación medida, grietas físicas exactas, comportamiento constitutivo no lineal ni cumplimiento integral NSR-10.</p><p>El ritmo de carga se introduce como tasa de esfuerzo y se transforma a fuerza por segundo. La animación puede reproducirse más rápido que el tiempo físico para fines de demostración.</p></div>
+    </section>
+    <footer>HORMIGÓN LAB <span>·</span> Proyecto académico de ingeniería civil <span>·</span> Offline en Android después de instalar</footer>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
