@@ -1,3 +1,4 @@
+import {getFailureModes,resolveFailureMode,normalizedLoad,damageStage,clamp01} from './failureModes.js';
 import {DEFAULTS, compute, simulatedSeries, STANDARD_LINKS, measuredRecord, calibrationFit} from './engine.js';
 
 const STORE_STATE='hormigon-lab.config.v1',STORE_HISTORY='hormigon-lab.records.v1';
@@ -52,6 +53,9 @@ const schema={
   {key:'stirrupLegs',label:'Número de ramas',unit:'und',min:2,max:8,step:1,ifStirrups:true},
  ],
  machine:[
+  {key:'fractureMode',label:'Patrón de fractura 3D',wide:true,dynamicFailure:true},
+  {key:'visualQuality',label:'Calidad del renderizado',wide:true,options:[['auto','Equilibrada (recomendado)'],['alta','Alta resolución'],['eco','Ahorro de batería']]},
+  {key:'revealSteel',label:'Mostrar acero interno (radiografía)',wide:true,type:'checkbox',show:['reinforced']},
   {key:'rateCompression',label:'Velocidad de esfuerzo',unit:'MPa/s',min:.01,max:2,step:.01,show:['cylinder']},
   {key:'rateFlex',label:'Incremento de esfuerzo',unit:'MPa/min',min:.1,max:10,step:.1,show:['beam','reinforced']},
   {key:'playback',label:'Aceleración visual de simulación',options:[[1,'Tiempo físico 1×'],[5,'5×'],[10,'10×'],[25,'25×'],[50,'50×']],wide:true},
@@ -75,7 +79,8 @@ function fieldHtml(field){
   if(!isVisibleField(field))return '';
   const id=`f-${field.key}`;
   if(field.type==='checkbox')return `<div class="field wide"><label class="field-toggle" for="${id}">${escapeHTML(field.label)}<input type="checkbox" id="${id}" data-key="${field.key}" ${state[field.key]?'checked':''}></label></div>`;
-  const control=field.options?`<select data-key="${field.key}" id="${id}">${field.options.map(([val,label])=>`<option value="${escapeHTML(val)}" ${String(state[field.key])===String(val)?'selected':''}>${escapeHTML(label)}</option>`).join('')}</select>`
+  const dynamicOptions=field.dynamicFailure?[['auto','Automático (orientativo)'],...getFailureModes(state.test).map(m=>[m.id,m.label])]:field.options;
+  const control=dynamicOptions?`<select data-key="${field.key}" id="${id}">${dynamicOptions.map(([val,label])=>`<option value="${escapeHTML(val)}" ${String(state[field.key])===String(val)?'selected':''}>${escapeHTML(label)}</option>`).join('')}</select>`
   :`<input data-key="${field.key}" id="${id}" type="number" inputmode="decimal" step="${field.step??'any'}" ${field.min!==undefined?`min="${field.min}"`:''} ${field.max!==undefined?`max="${field.max}"`:''} value="${escapeHTML(state[field.key])}"/>`;
   return `<div class="field ${field.wide?'wide':''}"><label for="${id}">${escapeHTML(field.label)}</label><div class="field-control">${control}${field.unit?`<small>${escapeHTML(field.unit)}</small>`:''}</div></div>`;
 }
@@ -104,7 +109,9 @@ function drawChart(data){
  const area=`${path} L${x(1)},${h-py} L${x(0)},${h-py} Z`;
  svg.innerHTML=`<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#5ce3db" stop-opacity=".35"/><stop offset="1" stop-color="#5ce3db" stop-opacity="0"/></linearGradient></defs>
  <path d="M12 45H688 M12 83H688 M12 121H688" fill="none" stroke="#284354" stroke-dasharray="5 5"/>
- <path d="${area}" fill="url(#g)"/><path d="${path}" fill="none" stroke="#5ce3db" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+ <path d="${area}" fill="url(#g)"/><path d="${path}" fill="none" stroke="#5ce3db" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>
+ <line id="chart-progress-line" x1="12" y1="12" x2="12" y2="133" stroke="#ffd3a1" stroke-width="1.6" stroke-dasharray="4 4"/>
+ <circle id="chart-load-dot" cx="12" cy="133" r="5.5" fill="#fff0d1" stroke="#da8b5c" stroke-width="1.7"/>`;
 }
 function renderResult(){
  const r=current;if(!r?.ok){$('#result-metrics').innerHTML='';$('#steps').innerHTML='';$('#result-alerts').innerHTML=(r?.errors||[]).map(m=>`<p class="warning error">${escapeHTML(m)}</p>`).join('');return;}
@@ -116,7 +123,7 @@ function renderResult(){
   numericMetric('RENDIMIENTO DE LA MEZCLA',num(r.mix.totalLiters,1),'L','Método aproximado de volúmenes absolutos'),
   numericMetric('RITMO DE FUERZA',num(r.rateKNs,3),'kN/s','Según la tasa de esfuerzo configurada'),
   numericMetric('TIEMPO MODELADO',num(r.duration,1),'s','Sin aceleración visual'),
-  numericMetric('MECANISMO POSIBLE',r.s.test==='reinforced'?'Flexión / cortante':r.s.test==='cylinder'?'Compresión':'Flexión','','No sustituye la inspección de fractura'),
+  numericMetric('FALLA VISUAL',r.fracture?.label||'Por definir','','Patrón ilustrativo, no diagnóstico'),
   ...(r.measured?[numericMetric('RESISTENCIA DESDE LECTURA',num(r.measured.strength,3),'MPa','Calculado desde carga real ingresada')]:[]),
   ...(r.capacity?[numericMetric('φMn',num(r.capacity.Mdesign,3),'kN·m','Estimación seccional'),numericMetric('φVn',num(r.capacity.Vdesign,3),'kN','Estimación seccional')]:[])
  ].join('');
@@ -140,12 +147,26 @@ function refresh(){
  updateGauge(0);if(simulation)stopSimulation(false);
 }
 function updateGauge(t){
- animatedProgress=t;const p=Math.max(0,Math.min(1,t));const rise=p<.92?p/.92:1-.78*((p-.92)/.08);
- const value=current?.ok?Math.max(0,rise)*current.loadKN:0;
- $('#gauge-value').textContent=num(value,2);$('#gauge-fill').style.width=`${Math.round(p*100)}%`;
- $('#gauge-caption').textContent=`${Math.round(p*100)}% de la duración modelada`;
+ animatedProgress=t;const p=clamp01(t);
+ const normalized=current?.ok?normalizedLoad(p,current.fracture):0;
+ const value=current?.ok?normalized*current.loadKN:0;
+ const r=current,area=r?.specimenArea||1;
+ const nominalStress=r?.s.test==='cylinder'?value*1000/area:
+  value*1000*(Number(state.span)||1)*(state.loading==='center'?1.5:1)/((Number(state.width)||1)*(Number(state.depth)||1)**2);
+ const simulatedDeflection=r?.s.test==='cylinder'?(p<.92?p/.92*.20:.20+.22*(p-.92)/.08):
+  (p<.92?Math.pow(p/.92,1.35)*2.0:2.0+(p-.92)/.08*(r?.fracture?.behavior==='Progresiva'?2.4:1.3));
+ $('#gauge-value').textContent=num(value,2);
+ $('#gauge-fill').style.width=`${Math.round(normalized*100)}%`;
+ $('#gauge-caption').textContent=`${num(normalized*100,0)}% de carga máxima modelada`;
  $('#progress-status').textContent=`${Math.round(p*100)} %`;
- machine?.setProgress(p);if(fallback3d)paintFallback(p);
+ $('#live-stress').textContent=`${num(nominalStress,2)} MPa`;
+ $('#live-time').textContent=`${num(p*(r?.duration||0),1)} s`;
+ $('#live-deflection').textContent=`${num(simulatedDeflection,2)} mm*`;
+ $('#damage-status').textContent=damageStage(p,r?.fracture);
+ const guide=$('#chart-progress-line'),dot=$('#chart-load-dot');
+ if(guide&&dot){const x=12+p*676,y=133-normalized*121;guide.setAttribute('x1',x);guide.setAttribute('x2',x);dot.setAttribute('cx',x);dot.setAttribute('cy',y);}
+ try{machine?.setProgress(p,normalized);}catch(error){console.warn(error);activateFallback3D();}
+ if(fallback3d)paintFallback(p);
 }
 function stopSimulation(resetStatus=true){
  if(frameRequest)cancelAnimationFrame(frameRequest);frameRequest=null;simulation=null;
@@ -159,7 +180,7 @@ function startSimulation(){
  function animate(now){if(!simulation)return;
    const t=Math.min(1,(now-simulation.start)/1000*simulation.playback/Math.max(simulation.duration,.01));
    updateGauge(t);
-   if(t>=1){stopSimulation(false);$('#machine-status').textContent='FALLA MODELADA';toast('Simulación concluida. Consulta la memoria de cálculo.');}
+   if(t>=1){stopSimulation(false);$('#machine-status').textContent='FRACTURA VISUALIZADA';toast('Simulación finalizada. Patrón visual: '+current.fracture.label);}
    else frameRequest=requestAnimationFrame(animate);
  }frameRequest=requestAnimationFrame(animate);
 }
@@ -219,10 +240,17 @@ async function exportPdf(){
   toast('Memoria PDF preparada.');
  }catch(err){console.error(err);toast('No fue posible generar PDF. Usa la exportación HTML como alternativa.');}
 }
+function activateFallback3D(){
+ if(fallback3d)return;fallback3d=true;
+ try{machine?.destroy?.();}catch(err){console.warn('Cierre del renderizador WebGL:',err);}machine=null;
+ const old=$('#machine-canvas'),replacement=document.createElement('canvas');
+ replacement.id='machine-canvas';replacement.setAttribute('aria-label','Vista técnica 2D de respaldo');
+ old.replaceWith(replacement);paintFallback(animatedProgress);
+}
 function paintFallback(t){
  const c=$('#machine-canvas'),rect=c.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
  if(c.width!==Math.floor(rect.width*dpr)||c.height!==Math.floor(rect.height*dpr)){c.width=rect.width*dpr;c.height=rect.height*dpr;}
- const g=c.getContext('2d');g.save();g.scale(dpr,dpr);const w=rect.width,h=rect.height;
+ const g=c.getContext('2d');if(!g)return;g.save();g.scale(dpr,dpr);const w=rect.width,h=rect.height;
  g.clearRect(0,0,w,h);
  const grad=g.createRadialGradient(w*.52,h*.4,5,w*.5,h*.5,Math.max(w,h));grad.addColorStop(0,'#254555');grad.addColorStop(1,'#09111d');g.fillStyle=grad;g.fillRect(0,0,w,h);
  const X=x=>w/2+x*Math.min(w/6.8,h/6.5),Y=y=>h*.86-y*Math.min(w/6.8,h/6.5),scale=Math.min(w/6.8,h/6.5);
@@ -244,11 +272,11 @@ function paintFallback(t){
 
 async function initialize3D(){
  try{const {UniversalMachine3D}=await import('./machine3d.js');machine=new UniversalMachine3D($('#machine-canvas'));machine.setConfig(state);}
- catch(err){console.warn('3D no disponible, usando vista de respaldo:',err);fallback3d=true;paintFallback(animatedProgress);}
+ catch(err){console.warn('3D no disponible, usando vista de respaldo:',err);activateFallback3D();}
 }
 function wire(){
  $$('.tabs button').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
- $$('.test-choice').forEach(btn=>btn.addEventListener('click',()=>{state.test=btn.dataset.test;renderFields();saveState();refresh();}));
+ $$('.test-choice').forEach(btn=>btn.addEventListener('click',()=>{state.test=btn.dataset.test;state.fractureMode='auto';renderFields();saveState();refresh();}));
  $('#apply-preset').addEventListener('click',()=>{
    const preset=$('#preset-select').value;
    const configs={
@@ -259,7 +287,7 @@ function wire(){
      nostirrups:{test:'reinforced',nTop:3,nBottom:3,barDiameter:9.5,stirrups:false,fc28:28},
    };
    const next={...configs[preset]};delete next.cester;Object.assign(state,next);
-   renderFields();saveState();refresh();toast('Ejemplo académico aplicado. Ajusta los datos de tu ensayo.');
+   state.fractureMode='auto';renderFields();saveState();refresh();toast('Ejemplo académico aplicado. Ajusta los datos de tu ensayo.');
  });
  $('#run-btn').addEventListener('click',startSimulation);
  $('#reset-btn').addEventListener('click',()=>{stopSimulation();updateGauge(0);$('#machine-status').textContent='LISTA';});

@@ -12,7 +12,7 @@
   <div id="app">
     <header class="topbar">
       <div class="logo"><span class="mark">H<span class="mark-dot">•</span>L</span></div>
-      <div class="brand"><strong>HORMIGÓN <span>LAB</span></strong><small>Laboratorio virtual de materiales · v0.1</small></div>
+      <div class="brand"><strong>HORMIGÓN <span>LAB</span></strong><small>Laboratorio virtual de materiales · v0.2</small></div>
       <span class="top-badge">SIMULADOR ACADÉMICO</span>
     </header>
     <nav class="tabs" aria-label="Secciones del laboratorio">
@@ -57,8 +57,14 @@
               <div class="gauge-bar"><div id="gauge-fill"></div></div>
               <small id="gauge-caption">0% de la carga modelada</small>
             </div>
-            <div class="canvas-hint">⤢ Arrastra para girar · Pellizca para ampliar</div>
+            <div class="canvas-hint">⤢ Gira y amplía · Fractura 3D cualitativa</div>
           </div>
+          <div class="telemetry" aria-label="Medidores de simulación en tiempo real">
+            <div><small>ESFUERZO NOMINAL</small><strong id="live-stress">0,00 MPa</strong></div>
+            <div><small>TIEMPO MODELO</small><strong id="live-time">0,0 s</strong></div>
+            <div><small>DEFORMACIÓN VISUAL*</small><strong id="live-deflection">0,00 mm*</strong></div>
+          </div>
+          <div class="failure-readout"><small id="fracture-source">MODELO AUTOMÁTICO ORIENTATIVO</small><strong id="fracture-name">Patrón de compresión</strong><p id="fracture-description">La geometría de la fractura es una visualización didáctica.</p><span class="failure-phase">ESTADO: <b id="damage-status">Carga inicial</b></span></div>
           <div class="status-row"><div><span class="status-key">ENSAYO</span><strong id="mode-status">Compresión axial</strong></div><div><span class="status-key">RITMO DE CARGA</span><strong id="rate-status">0,25 MPa/s</strong></div><div><span class="status-key">SIMULACIÓN</span><strong id="progress-status">0 %</strong></div></div>
         </div>
         <div class="insights">
@@ -66,6 +72,7 @@
           <div class="insight"><span>RESISTENCIA ESTIMADA</span><strong id="strength-display">—</strong><small>MPa</small></div>
           <div class="insight"><span>MÓDULO E ESTIMADO</span><strong id="elastic-display">—</strong><small>GPa</small></div>
         </div>
+        <p class="visual-disclaimer">*La deformación es un desplazamiento animado de referencia, no medido ni obtenido por un modelo de elementos finitos. Todos los medidores corresponden a la simulación y no a sensores conectados.</p>
         <section class="mini-chart-card"><div class="section-heading"><div><small>RESPUESTA MODELADA</small><h3>Fuerza aplicada vs. progresión</h3></div><span class="tiny-tag">ILUSTRATIVO</span></div><svg id="mini-chart" viewBox="0 0 700 145" role="img" aria-label="Gráfica ilustrativa de carga" preserveAspectRatio="none"></svg><div class="chart-axis"><span>Inicio</span><span>Incremento de carga →</span><span>Falla</span></div></section>
       </section>
     </main>

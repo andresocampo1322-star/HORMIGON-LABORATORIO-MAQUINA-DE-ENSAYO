@@ -16,3 +16,19 @@ footer{text-align:center;border-top:1px solid #1a3342;color:#7596a8;font-size:10
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .preset-row{background:#0d2030;border:1px solid #2a4756;border-radius:12px;padding:12px;margin:11px 0 15px}.preset-row label{display:block;color:#9cc8cf;font-size:9px;font-weight:800;letter-spacing:.14em;margin-bottom:7px}.preset-controls{display:flex;gap:7px}.preset-controls select{min-width:0;flex:1;background:#102c3a;border:1px solid #315a65;border-radius:8px;color:#e6faf9;padding:10px;font-size:11px}.preset-row>small{display:block;color:#739ca7;font-size:9px;margin-top:7px;line-height:1.4}
 .export-buttons{display:flex;gap:8px}.export-buttons button{font-size:12px;padding:9px 12px}.export-buttons .primary{box-shadow:none}
+
+/* v0.2 — telemetría, información de fractura y contraste móvil */
+.telemetry{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:13px 17px 7px;background:#091a28}
+.telemetry>div{border:1px solid #315368;border-radius:11px;padding:11px 9px;background:linear-gradient(135deg,#163044,#0b1c2b);min-width:0;box-shadow:inset 0 1px 0 #ffffff0a}
+.telemetry small{display:block;color:#8ab4c9;font-weight:800;font-size:9px;letter-spacing:.08em;line-height:1.3;min-height:24px}
+.telemetry strong{display:block;color:#b8f3e9;font-size:17px;font-variant-numeric:tabular-nums;margin-top:6px;white-space:nowrap}
+.failure-readout{margin:8px 17px 5px;border:1px solid #31586a;padding:12px 14px;border-radius:12px;background:linear-gradient(115deg,#112b39,#0a1b28);}
+.failure-readout>small{display:block;font-weight:800;font-size:9px;color:#7fdace;letter-spacing:.09em}
+.failure-readout>strong{display:block;margin-top:5px;font-size:15px;color:#f2f9ff}
+.failure-readout p{margin:4px 0 8px;color:#abc2cb;font-size:11px;line-height:1.55}
+.failure-phase{color:#84b0c0;font-size:10px}.failure-phase b{color:#ffcfaa}
+.visual-disclaimer{font-size:10px;color:#80a4b5;padding:4px 12px;line-height:1.5;margin:0}
+.canvas-frame{background:radial-gradient(circle at 40% 40%,#16384b 0%,#07111e 75%);}
+.gauge strong{font-variant-numeric:tabular-nums}
+#chart-progress-line,#chart-load-dot{pointer-events:none}
+@media(max-width:490px){.telemetry{gap:5px;padding:9px 10px 4px}.telemetry>div{padding:9px 6px}.telemetry small{font-size:7px;min-height:26px}.telemetry strong{font-size:12px}.failure-readout{margin:7px 9px 3px;padding:10px}.failure-readout>strong{font-size:13px}.failure-readout p{font-size:10px}.visual-disclaimer{font-size:9px}}

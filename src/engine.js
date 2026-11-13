@@ -1,3 +1,4 @@
+import {resolveFailureMode, normalizedLoad} from './failureModes.js';
 /**
  * HORMIGÓN LAB — motor de cálculo académico, independiente de la interfaz.
  * Unidades: mm, MPa (= N/mm²), kN, kg, L, s.
@@ -16,7 +17,7 @@ export const DEFAULTS = Object.freeze({
   nTop: 3, nBottom: 3, barDiameter: 9.5, fy: 420,
   cover: 30, stirrups: false, stirrupDiameter: 6, stirrupSpacing: 100,
   stirrupLegs: 2, hooks: 'Rectas', fractureOffset: 0,
-  sigmaAt50: '', epsilonAt40: '',
+  sigmaAt50: '', epsilonAt40: '', fractureMode: 'auto', visualQuality: 'auto', revealSteel: false,
 });
 export const STANDARD_LINKS = Object.freeze([
   { code: 'ASTM C39/C39M-26', label: 'Compresión uniaxial de cilindros', url:'https://store.astm.org/c0039_c0039m-26.html' },
@@ -213,14 +214,16 @@ export function compute(input, records=[]) {
   }
   if(s.test==='reinforced') notes.push('La geometría armada se estudia como elemento reforzado; NO se debe declarar el resultado un ensayo ASTM C78/C293 de concreto simple.');
   if(s.test!=='cylinder' && Number(s.fractureOffset)>0) notes.push('Se debe evaluar la ubicación de inicio de fractura antes de aplicar el cálculo normativo del módulo de rotura.');
-  const rawModel={fc,fc28,basis,fr,E,Emeasured,mix,ageFactor:factor,loadKN,rateKNs,duration,modulus,mechanism,loadModel,capacity,measured,s,specimenArea};
+  const fracture=resolveFailureMode(s.test,s.fractureMode,{capacity,fractureOffset:s.fractureOffset});
+  notes.push(fracture.manual?'Patrón de falla seleccionado para demostración visual; no se infiere de la dosificación.':'Patrón visual sugerido de forma orientativa: requiere observación de grietas y mediciones para diagnosticar una falla real.');
+  const rawModel={fracture,fc,fc28,basis,fr,E,Emeasured,mix,ageFactor:factor,loadKN,rateKNs,duration,modulus,mechanism,loadModel,capacity,measured,s,specimenArea};
   return {ok:true,...rawModel,warnings:notes,steps,calibration:fit,unitSystem:'SI',standards:s.test==='cylinder'?['ASTM C39/C39M','ASTM C469/C469M']:s.test==='reinforced'?['Modelo didáctico ACI/NSR (no ensayo ASTM de concreto simple)']:[flexMode==='center'?'ASTM C293/C293M':'ASTM C78/C78M']};
 }
 
 export function simulatedSeries(r, count=44) {
   if(!r.ok) return [];
   return Array.from({length:count+1},(_,i)=>{
-    const t=i/count, load=t<=0.92?r.loadKN*(t/0.92):r.loadKN*(1-0.78*(t-0.92)/0.08);
+    const t=i/count, load=r.loadKN*normalizedLoad(t,r.fracture);
     const deflection=(t<=0.92?Math.pow(t/0.92,1.3):1+(t-0.92)*2)* (r.s.test==='cylinder'?0.22:3.2);
     return {t,load,deflection,stress:load*1000/r.specimenArea||load*1000/(r.s.test==='cylinder'?Math.PI*r.s.diameter**2/4:r.s.width*r.s.depth)};
   });
