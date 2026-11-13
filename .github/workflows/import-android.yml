@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['source_parts/part06.txt']
+    paths: ['source_parts/part06.txt', '.github/workflows/import-android.yml']
 permissions:
   contents: write
 jobs:
@@ -30,6 +30,8 @@ jobs:
           fs.writeFileSync('/tmp/hormigon-lab-source.tar',tar);
           JS
           tar -xf /tmp/hormigon-lab-source.tar
+          # GitHub Actions no puede añadir otro workflow con el GITHUB_TOKEN.
+          rm -f .github/workflows/android.yml
           git rm -r --quiet source_parts
           git add -A
           git config user.name "github-actions[bot]"
