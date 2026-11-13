@@ -157,7 +157,7 @@ function updateGauge(t){
   (p<.92?Math.pow(p/.92,1.35)*2.0:2.0+(p-.92)/.08*(r?.fracture?.behavior==='Progresiva'?2.4:1.3));
  $('#gauge-value').textContent=num(value,2);
  $('#gauge-fill').style.width=`${Math.round(normalized*100)}%`;
- $('#gauge-caption').textContent=`${num(normalized*100,0)}% de carga máxima modelada`;
+ $('#gauge-caption').textContent=`${num(normalized*100,0)}% del máximo modelado`;
  $('#progress-status').textContent=`${Math.round(p*100)} %`;
  $('#live-stress').textContent=`${num(nominalStress,2)} MPa`;
  $('#live-time').textContent=`${num(p*(r?.duration||0),1)} s`;
