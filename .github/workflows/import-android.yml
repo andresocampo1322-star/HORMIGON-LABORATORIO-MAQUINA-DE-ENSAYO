@@ -1,0 +1,61 @@
+name: Importar Hormigon Lab y compilar APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['source_parts/part06.txt']
+permissions:
+  contents: write
+jobs:
+  import-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Instalar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reconstruir el codigo fuente
+        shell: bash
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs');
+          const zlib = require('node:zlib');
+          const code = Array.from({length:6}, (_,i)=>fs.readFileSync('source_parts/part'+String(i+1).padStart(2,'0')+'.txt','utf8')).join('');
+          const tar = zlib.brotliDecompressSync(Buffer.from(code,'base64'));
+          fs.writeFileSync('/tmp/hormigon-lab-source.tar',tar);
+          JS
+          tar -xf /tmp/hormigon-lab-source.tar
+          git rm -r --quiet source_parts
+          git add -A
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git diff --cached --quiet || git commit -m "feat: importar simulador Android, motor y pruebas"
+          git push origin HEAD:main
+      - name: Preparar Android
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Probar y compilar aplicación
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+          npm run build
+          npx cap add android
+          npx cap sync android
+      - name: Compilar APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Hormigon-Lab-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
