@@ -1,62 +1,56 @@
-name: Importar Hormigon Lab y compilar APK
+name: Compilar APK Hormigon Lab
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['source_parts/part06.txt', '.github/workflows/import-android.yml']
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'index.html'
+      - 'package*.json'
+      - 'vite.config.js'
+      - 'capacitor.config.json'
+      - '.github/workflows/import-android.yml'
 permissions:
-  contents: write
+  contents: read
 jobs:
-  import-build:
+  android:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 80
     steps:
-      - name: Descargar repositorio
+      - name: Codigo fuente
         uses: actions/checkout@v4
-        with:
-          persist-credentials: true
-      - name: Instalar Node 22
+      - name: Node 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Reconstruir el codigo fuente
-        shell: bash
-        run: |
-          node - <<'JS'
-          const fs = require('node:fs');
-          const zlib = require('node:zlib');
-          const code = Array.from({length:6}, (_,i)=>fs.readFileSync('source_parts/part'+String(i+1).padStart(2,'0')+'.txt','utf8')).join('');
-          const tar = zlib.brotliDecompressSync(Buffer.from(code,'base64'));
-          fs.writeFileSync('/tmp/hormigon-lab-source.tar',tar);
-          JS
-          tar -xf /tmp/hormigon-lab-source.tar
-          # GitHub Actions no puede añadir otro workflow con el GITHUB_TOKEN.
-          rm -f .github/workflows/android.yml
-          git rm -r --quiet source_parts
-          git add -A
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git diff --cached --quiet || git commit -m "feat: importar simulador Android, motor y pruebas"
-          git push origin HEAD:main
-      - name: Preparar Android
+      - name: Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
-      - name: Probar y compilar aplicación
+      - name: Verificar Android SDK del runner
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME"
+          ls -la "$ANDROID_HOME" | head -20
+      - name: Ejecutar pruebas y compilar web
         run: |
           npm install --no-audit --no-fund
           npm test
           npm run build
+      - name: Crear proyecto Android
+        run: |
           npx cap add android
           npx cap sync android
-      - name: Compilar APK
+      - name: Compilar APK debug
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
-      - uses: actions/upload-artifact@v4
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
         with:
           name: Hormigon-Lab-Android-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
